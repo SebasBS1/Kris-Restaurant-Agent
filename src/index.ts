@@ -16,7 +16,7 @@
 // Load environment variables from .env file
 import 'dotenv/config';
 
-import { createTool, stringField, numberField, booleanField, apiKeyField } from '@ai-spine/tools';
+import { createTool, stringField, numberField, booleanField, apiKeyField, arrayField, timeField, dateField } from '@ai-spine/tools';
 
 /**
  * Input interface defining the structure of data that users will provide
@@ -24,12 +24,16 @@ import { createTool, stringField, numberField, booleanField, apiKeyField } from 
  * validation and documentation generation.
  */
 interface KrisRestaurantAgentInput {
-  /** The message to be processed by the tool */
-  message: string;
-  /** Number of times to repeat the message (optional, defaults to 1) */
-  count?: number;
-  /** Whether to convert the message to uppercase (optional, defaults to false) */
-  uppercase?: boolean;
+  query: string;
+  date: string;
+  time: string;
+  people: number;
+  country: string;
+  sortby: (string|number)[]; // Ordenar restaurantes, permite calificación, los más nuevos, así como su distancia.
+  maximum: number;
+  pricing: string;           // $$, $$$, $$$$
+  amneties: string;          // wheelchair access o vacío
+  seating: string;           // bar, counter, outdoor, high top
 }
 
 /**
@@ -60,7 +64,7 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
     version: '1.0.0',
     description: 'Restaurant booking agent.',
     capabilities: ['text-processing'],
-    author: 'Your Name',
+    author: 'KRIS Development Team',
     license: 'MIT',
   },
 
@@ -77,24 +81,74 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
      * descriptions, and default values.
      */
     input: {
-      message: stringField({
+      query: stringField({
         required: true,
-        description: 'The message to process',
+        description: 'Búsqueda',
         minLength: 1,
-        maxLength: 1000,
+        maxLength: 500,
       }),
-      count: numberField({
-        required: false,
-        description: 'Number of times to repeat the message',
+      date: dateField({
+        required: true,
+        description: 'Fecha',
+        minDate: '2025-01-01',
+        maxDate: '2025-12-31'
+      }),
+      time: timeField({
+        required: true,
+        description: 'Hora',
+        example: '10:00'
+      }),
+      people: numberField({
+        required: true,
+        description: 'Número de personas',
         min: 1,
         max: 10,
         default: 1,
       }),
-      uppercase: booleanField({
-        required: false,
-        description: 'Whether to convert message to uppercase',
-        default: false,
+      country: stringField({
+        required: true,
+        description: 'País',
+        minLength: 1,
+        maxLength: 50,
       }),
+      sortby: arrayField(
+        stringField({minLength: 1, maxLength: 50}),
+        {
+          required: false,
+          minItems: 0,
+          maxItems: 3,
+          uniqueItems: true,
+          description: "Arreglo que contiene datos para ordenar las opciones de restaurantes.",
+        }
+      ),
+      maximum: numberField({
+        required: false,
+        min: 1,
+        max: 20,
+        description: 'Número máximo de resultados',
+        default: 5,
+      }),
+      pricing: stringField({
+        required: true,
+        minLength: 2,
+        maxLength: 4,
+        description: 'Rango de precios de restaurantes',
+        default: '$$',
+      }),
+      amneties: stringField({
+        required: false,
+        minLength: 1,
+        maxLength: 100,
+        description: 'Rango de precios de restaurantes',
+        default: '$$',
+      }),
+      seating: stringField({
+        required: true,
+        minLength: 1,
+        maxLength: 20,
+        description: 'Luegar donde las personas se sentarán.',
+        default: 'counter',
+      })
     },
 
     /**
