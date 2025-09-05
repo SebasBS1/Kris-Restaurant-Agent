@@ -16,7 +16,7 @@
 // Load environment variables from .env file
 import 'dotenv/config';
 
-import { createTool, stringField, numberField, booleanField, apiKeyField, arrayField, timeField, dateField } from '@ai-spine/tools';
+import { createTool, stringField, numberField, booleanField, apiKeyField, arrayField, timeField, dateField, objectField, datetimeField } from '@ai-spine/tools';
 
 /**
  * Input interface defining the structure of data that users will provide
@@ -24,16 +24,14 @@ import { createTool, stringField, numberField, booleanField, apiKeyField, arrayF
  * validation and documentation generation.
  */
 interface KrisRestaurantAgentInput {
-  query: string;
-  date: string;
-  time: string;
-  people: number;
-  country: string;
-  sortby: (string|number)[]; // Ordenar restaurantes, permite calificación, los más nuevos, así como su distancia.
-  maximum: number;
-  pricing: string;           // $$, $$$, $$$$
-  amneties: string;          // wheelchair access o vacío
-  seating: string;           // bar, counter, outdoor, high top
+  query: string;      // Ciudad.
+  datetime: string;   // Fecha y hora.
+  people: number;     // Cantidad de personas.
+  country: string;    // País.
+  maximum: number;    // Número máximo de resultados.
+  pricing: string;    // $$, $$$, $$$$
+  amneties: string;   // wheelchair access o vacío
+  seating: string;    // bar, counter, outdoor, high top
 }
 
 /**
@@ -83,20 +81,15 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
     input: {
       query: stringField({
         required: true,
-        description: 'Búsqueda',
+        description: 'Ciudad',
         minLength: 1,
         maxLength: 500,
       }),
-      date: dateField({
+      datetime: dateField({
         required: true,
         description: 'Fecha',
-        minDate: '2025-01-01',
+        minDate: '2025-01-02',
         maxDate: '2025-12-31'
-      }),
-      time: timeField({
-        required: true,
-        description: 'Hora',
-        example: '10:00'
       }),
       people: numberField({
         required: true,
@@ -111,22 +104,12 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
         minLength: 1,
         maxLength: 50,
       }),
-      sortby: arrayField(
-        stringField({minLength: 1, maxLength: 50}),
-        {
-          required: false,
-          minItems: 0,
-          maxItems: 3,
-          uniqueItems: true,
-          description: "Arreglo que contiene datos para ordenar las opciones de restaurantes.",
-        }
-      ),
       maximum: numberField({
         required: false,
         min: 1,
         max: 20,
         description: 'Número máximo de resultados',
-        default: 5,
+        default: 1,
       }),
       pricing: stringField({
         required: true,
@@ -137,16 +120,15 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
       }),
       amneties: stringField({
         required: false,
-        minLength: 1,
+        minLength: 0,
         maxLength: 100,
-        description: 'Rango de precios de restaurantes',
-        default: '$$',
+        description: 'Discapacidades',
       }),
       seating: stringField({
         required: true,
         minLength: 1,
         maxLength: 20,
-        description: 'Luegar donde las personas se sentarán.',
+        description: 'Lugar donde las personas se sentarán.',
         default: 'counter',
       })
     },
@@ -184,19 +166,23 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
     console.log(`Executing kris-restaurant-agent tool with execution ID: ${context.executionId}`);
 
     try {
-      // Get the count from input or config default
-      // This demonstrates how to merge input parameters with configuration defaults
-      const count = input.count ?? config.default_count ?? 1;
-      
-      // Process the message according to the specified transformations
-      let processedMessage = input.message;
-      
-      if (input.uppercase) {
-        processedMessage = processedMessage.toUpperCase();
-      }
+      // Datos del usuario.
+      const queryCity = input.query || "";
+      const datetime = input.datetime || "";
+      const noPeople = input.people || 0;
+      const country = input.country || "";
+      const maxResults = input.maximum || 0;
+      const pricing = input.pricing || "";
+      const amneties = input.amneties || "";
+      const seating = input.seating || "";
 
-      // Repeat the message according to the count parameter
-      const result = Array(count).fill(processedMessage).join(' ');
+      const result = {
+        "name": "Mariscos Juan",
+        "pricing": pricing,
+        "location": `${queryCity}, ${country}`,
+        "seating": seating,
+        "amneties": amneties
+      };
 
       // Simulate some processing time (remove this in real implementations)
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -206,12 +192,7 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
       return {
         status: 'success',
         data: {
-          processed_message: result,
-          original_message: input.message,
-          transformations: {
-            uppercase: input.uppercase || false,
-            count: count,
-          },
+          results: result,
           metadata: {
             execution_id: context.executionId,
             timestamp: context.timestamp.toISOString(),
