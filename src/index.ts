@@ -15,6 +15,7 @@
 
 // Load environment variables from .env file
 import 'dotenv/config';
+import axios from 'axios';
 
 import { createTool, stringField, numberField, booleanField, apiKeyField, arrayField, timeField, dateField, objectField, datetimeField } from '@ai-spine/tools';
 
@@ -24,9 +25,10 @@ import { createTool, stringField, numberField, booleanField, apiKeyField, arrayF
  * validation and documentation generation.
  */
 interface KrisRestaurantAgentInput {
-  query: string;      // Ciudad.
-  datetime: string;   // Fecha y hora.
-  people: number;     // Cantidad de personas.
+  rid: number; //restaurant id
+  city: string;      // Ciudad.
+  date_time: string;   // Fecha y hora.
+  party_size: number;     // Cantidad de personas.
   country: string;    // País.
   maximum: number;    // Número máximo de resultados.
   pricing: string;    // $$, $$$, $$$$
@@ -79,23 +81,28 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
      * descriptions, and default values.
      */
     input: {
-      query: stringField({
+      rid: numberField({
+        required:true,
+        description:"Restaurnt ID",
+        min:0
+      }),
+      city: stringField({
         required: true,
         description: 'Ciudad',
         minLength: 1,
         maxLength: 500,
       }),
-      datetime: dateField({
+      date_time: dateField({
         required: true,
         description: 'Fecha',
         minDate: '2025-01-02',
         maxDate: '2025-12-31'
       }),
-      people: numberField({
+      party_size: numberField({
         required: true,
         description: 'Número de personas',
         min: 1,
-        max: 10,
+        max: 20,
         default: 1,
       }),
       country: stringField({
@@ -162,14 +169,15 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
    * @param context - Execution context with metadata and tracking information
    * @returns Promise resolving to structured execution results
    */
+  
   async execute(input, config, context) {
     console.log(`Executing kris-restaurant-agent tool with execution ID: ${context.executionId}`);
 
     try {
       // Datos del usuario.
-      const queryCity = input.query || "";
-      const datetime = input.datetime || "";
-      const noPeople = input.people || 0;
+      const queryCity = input.city || "";
+      const datetime = input.date_time || "";
+      const noPeople = input.party_size || 0;
       const country = input.country || "";
       const maxResults = input.maximum || 0;
       const pricing = input.pricing || "";
@@ -207,6 +215,8 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
     }
   },
 });
+
+
 
 /**
  * Main entry point that starts the tool server with configurable options.
