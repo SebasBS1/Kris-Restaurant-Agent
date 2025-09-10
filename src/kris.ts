@@ -1,8 +1,10 @@
+import 'dotenv/config';
+import axios from 'axios';
 
 import { createTool, stringField, numberField, booleanField, apiKeyField, arrayField, timeField, dateField, objectField, datetimeField } from '@ai-spine/tools';
 
 export async function getAvailability(rid: number, datetime: string, people: number) {
-  const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/availability/${rid}`;
+  const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/availability/${rid}?partysize=${people}&date_time=${datetime}`;
 
   try {
     const response = await axios.get(url, {
