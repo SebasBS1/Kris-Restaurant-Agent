@@ -21,7 +21,26 @@ async function main() {
 
   if (choice.toLowerCase() === 'a') {
     const avail = await getAvailability(rid, datetime, people);
-    console.log("Availability result:", avail);
+
+    if (!avail.success) {
+      console.log("Error:", avail.error);
+    }
+    else{
+      console.log("Disponible: ", Boolean(avail.available));
+
+      if (avail.available) {
+        console.log("Su horario esta disponible, haciendo slotlock");
+        const lock = await lockBookingSlot(rid, datetime, people);
+        if (!lock.success) {
+          console.log("Lock falló:", lock.error);
+        } 
+        else {
+          console.log("Lock OK:", lock.data);
+        }
+      } else {
+        console.log("No hay disponibilidad para ese horario");
+      }
+    }
   } else if (choice.toLowerCase() === 'l') {
     const lock = await lockBookingSlot(rid, datetime, people);
     console.log("Lock result:", lock);

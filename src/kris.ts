@@ -3,6 +3,10 @@ import axios from 'axios';
 
 import { createTool, stringField, numberField, booleanField, apiKeyField, arrayField, timeField, dateField, objectField, datetimeField } from '@ai-spine/tools';
 
+function sameMinute(a: string, b: string): boolean {
+  return a.slice(0, 16) === b.slice(0, 16);
+}
+
 export async function getAvailability(rid: number, datetime: string, people: number) {
   const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/availability/${rid}?partysize=${people}&date_time=${datetime}`;
 
@@ -18,10 +22,14 @@ export async function getAvailability(rid: number, datetime: string, people: num
       }
     });
 
-    return {
-      success: true,
-      data: response.data  // this will give you the availability slots JSON
-    };
+    const data = response.data;
+
+    if (Array.isArray(data?.times)) {
+      const hit = data.times.find((t: any) => typeof t === "string" && sameMinute(t, datetime));
+      return { success: true, available: !!hit };
+    }
+
+    return { success: true, available: false };
   } catch (error: any) {
     console.error("Error al obtener disponibilidad en OpenTable:", error.response?.data || error.message);
     return {
