@@ -8,7 +8,7 @@ function sameMinute(a: string, b: string): boolean {
 }
 
 export async function getAvailability(rid: number, datetime: string, people: number) {
-  const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/availability/${rid}?partysize=${people}&date_time=${datetime}`;
+  const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/availability/${rid}?party_size=${people}&date_time=${datetime}`;
 
   try {
     const response = await axios.get(url, {
@@ -24,6 +24,13 @@ export async function getAvailability(rid: number, datetime: string, people: num
 
     const data = response.data;
 
+    if (typeof data?.party_size === "number" && people > data.party_size) {
+      return {
+        success: true,
+        available: false,
+      };
+    }
+    
     if (Array.isArray(data?.times)) {
       const hit = data.times.find((t: any) => typeof t === "string" && sameMinute(t, datetime));
       return { success: true, available: !!hit };
