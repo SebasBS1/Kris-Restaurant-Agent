@@ -2,7 +2,7 @@
 
 Open terminal inside Kris-Restaurant-Agent/src and run:
 
-npx ts-node cli.ts
+npx ts-node src/cli.ts
 
 # KrisRestaurantAgent
 
