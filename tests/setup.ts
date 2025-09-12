@@ -7,6 +7,12 @@ jest.setTimeout(10000);
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 
+let testUtils: {
+  createValidInput: (overrides?: any) => any;
+  createInvalidInput: (invalidField: string, invalidValue: any) => any;
+  wait: (ms: number) => Promise<void>;
+};
+
 beforeAll(() => {
   console.log = jest.fn();
   console.error = jest.fn();
@@ -18,7 +24,7 @@ afterAll(() => {
 });
 
 // Global test utilities
-global.testUtils = {
+testUtils = {
   // Helper to create valid input data
   createValidInput: (overrides = {}) => ({
     input_data: {
@@ -31,7 +37,7 @@ global.testUtils = {
 
   // Helper to create invalid input data
   createInvalidInput: (invalidField: string, invalidValue: any) => {
-    const input = global.testUtils.createValidInput();
+    const input = testUtils.createValidInput();
     input.input_data[invalidField] = invalidValue;
     return input;
   },
@@ -41,12 +47,3 @@ global.testUtils = {
 };
 
 // Type definitions for global test utilities
-declare global {
-  namespace globalThis {
-    var testUtils: {
-      createValidInput: (overrides?: any) => any;
-      createInvalidInput: (invalidField: string, invalidValue: any) => any;
-      wait: (ms: number) => Promise<void>;
-    };
-  }
-}

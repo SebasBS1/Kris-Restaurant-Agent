@@ -1,250 +1,84 @@
 import request from 'supertest';
 import krisRestaurantAgentTool from '../src/index';
+import testTool from '@ai-spine/tools-testing';
+import { getAvailability, lockBookingSlot, User, makeReservation } from "../src/kris"
 
-describe('KrisRestaurantAgent Tool', () => {
-  let app: any;
+// Caso de prueba completo.
+async function testComplete(input: any) {
+  let res: any;                                                     // Resultado final.
+  const RID: number = input.rid || 0;                               // RID
+  const DATE_TIME: string = input.date_time || "";                  // Fecha.
+  const PARTY_SIZE: number = input.party_size || 0;                 // No. personas.
+  const USER: User = input.user || {};                              // Datos del usuario.
+  const AVAIL = await getAvailability(RID, DATE_TIME, PARTY_SIZE);  // Disponibilidad.
 
-  beforeAll(async () => {
-    app = krisRestaurantAgentTool.getApp();
-  });
+  // Checar si la fecha está disponible.
+  if (!AVAIL.success) {
+    console.log("Error:", AVAIL.error);
+  }
+  else {
+    console.log(`\nDisponible: ${Boolean(AVAIL.available)}`);
 
-  afterAll(async () => {
-    await krisRestaurantAgentTool.stop();
-  });
+    if (AVAIL.available) {
+      // Realizar la reservación.
+      const RESERVATION = await makeReservation(RID, DATE_TIME, PARTY_SIZE, USER);
+      res = RESERVATION;
+      if (RESERVATION?.success) {
+        console.log("\nLa reservación se realizó con éxito.\n")
+        console.log(`\n${RESERVATION.data}\n`)
+      }
+    } else {
+      console.log("\nNo hay disponibilidad para ese horario.\n");
+      res = {success: false, data: {message: "Mesa no disponible."}}
+    }
+  }
+  return res;
+}
 
-  describe('Health Check', () => {
-    it('should return healthy status', async () => {
-      const response = await request(app)
-        .get('/health')
-        .expect(200);
-
-      expect(response.body).toMatchObject({
-        status: 'healthy',
-        version: '1.0.0',
-        tool_metadata: {
-          name: 'kris-restaurant-agent',
-          description: expect.any(String),
-          capabilities: expect.any(Array),
+// Caso 1. Checar si una reservación está disponible.
+test("1.- Checar si una reservación está disponible.", () => {
+  // Datos de entrada.
+  const input = {
+    rid: 5,
+    date_time: "2025-03-05T7:30",
+    party_size: 2,
+    user: {
+        firstName: "José",
+        lastName: "Macías",
+        phone: {
+            number: 6624520526,
+            country_code: "MX",
+            phone_type: "mobile"
         },
-        uptime_seconds: expect.any(Number),
-      });
-    });
-  });
+        specialRequest: "segundo piso"
+    }
+  };
 
-  describe('Tool Execution', () => {
-    it('should execute successfully with valid input', async () => {
-      const input = {
-        input_data: {
-          message: 'Hello, World!',
-          count: 2,
-          uppercase: true,
+  return getAvailability(input.rid, input.date_time, input.party_size).then(
+    avail => {expect(avail.available).toBe(true);}
+  );
+});
+
+// Caso 2. Error si la hora no está disponible.
+test("2.- Error si la hora no está disponible.", () => {
+  // Datos de entrada.
+  const input = {
+    rid: 5,
+    date_time: "2025-03-05T00:00",
+    party_size: 2,
+    user: {
+        firstName: "José",
+        lastName: "Macías",
+        phone: {
+            number: 6624520526,
+            country_code: "MX",
+            phone_type: "mobile"
         },
-      };
+        specialRequest: "segundo piso"
+    }
+  };
 
-      const response = await request(app)
-        .post('/execute')
-        .send(input)
-        .expect(200);
-
-      expect(response.body).toMatchObject({
-        execution_id: expect.any(String),
-        status: 'success',
-        output_data: {
-          processed_message: 'HELLO, WORLD! HELLO, WORLD!',
-          original_message: 'Hello, World!',
-          transformations: {
-            uppercase: true,
-            count: 2,
-          },
-        },
-        execution_time_ms: expect.any(Number),
-        timestamp: expect.any(String),
-      });
-    });
-
-    it('should handle missing required fields', async () => {
-      const input = {
-        input_data: {
-          // Missing required 'message' field
-          count: 1,
-        },
-      };
-
-      const response = await request(app)
-        .post('/execute')
-        .send(input)
-        .expect(400);
-
-      expect(response.body).toMatchObject({
-        status: 'error',
-        error_code: 'VALIDATION_ERROR',
-        error_message: expect.stringContaining('Required field'),
-      });
-    });
-
-    it('should handle invalid input types', async () => {
-      const input = {
-        input_data: {
-          message: 'Hello',
-          count: 'invalid', // Should be a number
-        },
-      };
-
-      const response = await request(app)
-        .post('/execute')
-        .send(input)
-        .expect(400);
-
-      expect(response.body).toMatchObject({
-        status: 'error',
-        error_code: 'VALIDATION_ERROR',
-        error_message: expect.stringContaining('must be of type number'),
-      });
-    });
-
-    it('should respect field constraints', async () => {
-      const input = {
-        input_data: {
-          message: 'Hello',
-          count: 15, // Exceeds max value of 10
-        },
-      };
-
-      const response = await request(app)
-        .post('/execute')
-        .send(input)
-        .expect(400);
-
-      expect(response.body).toMatchObject({
-        status: 'error',
-        error_code: 'VALIDATION_ERROR',
-        error_message: expect.stringContaining('must be at most 10'),
-      });
-    });
-
-    it('should use default values when fields are omitted', async () => {
-      const input = {
-        input_data: {
-          message: 'Hello',
-          // count and uppercase will use defaults
-        },
-      };
-
-      const response = await request(app)
-        .post('/execute')
-        .send(input)
-        .expect(200);
-
-      expect(response.body.output_data).toMatchObject({
-        processed_message: 'Hello',
-        transformations: {
-          uppercase: false, // default value
-          count: 1, // default value
-        },
-      });
-    });
-
-    it('should handle empty message gracefully', async () => {
-      const input = {
-        input_data: {
-          message: '',
-        },
-      };
-
-      const response = await request(app)
-        .post('/execute')
-        .send(input)
-        .expect(400);
-
-      expect(response.body).toMatchObject({
-        status: 'error',
-        error_code: 'VALIDATION_ERROR',
-        error_message: expect.stringContaining('must be at least 1 characters'),
-      });
-    });
-
-    it('should handle very long messages', async () => {
-      const longMessage = 'A'.repeat(1001); // Exceeds maxLength of 1000
-      const input = {
-        input_data: {
-          message: longMessage,
-        },
-      };
-
-      const response = await request(app)
-        .post('/execute')
-        .send(input)
-        .expect(400);
-
-      expect(response.body).toMatchObject({
-        status: 'error',
-        error_code: 'VALIDATION_ERROR',
-        error_message: expect.stringContaining('must be at most 1000 characters'),
-      });
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle malformed JSON', async () => {
-      const response = await request(app)
-        .post('/execute')
-        .send('invalid json')
-        .expect(400);
-
-      expect(response.body).toMatchObject({
-        status: 'error',
-        error_code: expect.any(String),
-        error_message: expect.any(String),
-      });
-    });
-
-    it('should handle missing request body', async () => {
-      const response = await request(app)
-        .post('/execute')
-        .expect(400);
-
-      expect(response.body).toMatchObject({
-        status: 'error',
-        error_code: 'VALIDATION_ERROR',
-        error_message: expect.stringContaining('Request body must be a valid JSON object'),
-      });
-    });
-  });
-
-  describe('Statistics and Metadata', () => {
-    it('should track execution statistics', () => {
-      const stats = krisRestaurantAgentTool.getStats();
-      
-      expect(stats).toMatchObject({
-        executionCount: expect.any(Number),
-        errorCount: expect.any(Number),
-        avgExecutionTime: expect.any(Number),
-        errorRate: expect.any(Number),
-        uptime: expect.any(Number),
-      });
-    });
-
-    it('should include metadata in responses', async () => {
-      const input = {
-        input_data: {
-          message: 'Test',
-        },
-        metadata: {
-          user_id: 'test-user',
-          custom_field: 'custom_value',
-        },
-      };
-
-      const response = await request(app)
-        .post('/execute')
-        .send(input)
-        .expect(200);
-
-      expect(response.body.output_data.metadata).toMatchObject({
-        execution_id: expect.any(String),
-        timestamp: expect.any(String),
-        tool_version: '1.0.0',
-      });
-    });
-  });
+  return getAvailability(input.rid, input.date_time, input.party_size).then(
+    avail => {expect(avail.available).toBe(false);}
+  );
 });

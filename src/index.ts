@@ -16,14 +16,12 @@
 // Load environment variables from .env file
 import 'dotenv/config';
 import axios from 'axios';
-
-import { createTool, stringField, numberField, booleanField, apiKeyField, arrayField, timeField, dateField, objectField, datetimeField } from '@ai-spine/tools';
+import { createTool, stringField, numberField, apiKeyField, objectField } from '@ai-spine/tools';
+import { getAvailability, lockBookingSlot, User, makeReservation } from "./kris"
 
 /**
- * Input interface defining the structure of data that users will provide
- * to this tool. This interface ensures type safety and enables automatic
- * validation and documentation generation.
- */
+ * Interfaz de los datos de entrada del agente.
+ *
 interface KrisRestaurantAgentInput {
   rid: number; //restaurant id
   city: string;      // Ciudad.
@@ -34,6 +32,14 @@ interface KrisRestaurantAgentInput {
   pricing: string;    // $$, $$$, $$$$
   amneties: string;   // wheelchair access o vacío
   seating: string;    // bar, counter, outdoor, high top
+}
+**/
+
+interface KrisRestaurantAgentInput {
+  rid: number;         // Restaurant id
+  date_time: string;   // Fecha de reservación.
+  party_size: number;  // Cantidad de personas.
+  user: User;          // Datos del usuario.
 }
 
 /**
@@ -48,96 +54,68 @@ interface KrisRestaurantAgentConfig {
   default_count?: number;
 }
 
-/**
- * Main tool instance created using the AI Spine createTool factory.
- * This tool implements the universal AI Spine contract, making it compatible
- * with all AI Spine platforms and runtimes.
- */
+// Crear la herramienta del agente.
 const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaurantAgentConfig>({
-  /**
-   * Tool metadata provides information about the tool's identity,
-   * capabilities, and usage. This information is used for documentation
-   * generation, tool discovery, and runtime introspection.
-   */
+  // Metadatos del agente.
   metadata: {
     name: 'kris-restaurant-agent',
     version: '1.0.0',
     description: 'Restaurant booking agent.',
-    capabilities: ['text-processing'],
+    capabilities: ['text-processing', 'booking'],
     author: 'KRIS Development Team',
     license: 'MIT',
   },
 
-  /**
-   * Schema definition describes the structure and validation rules for
-   * both input data and configuration. The AI Spine framework uses this
-   * schema to automatically validate inputs, generate documentation,
-   * and provide type safety.
-   */
+  // Esquema (schema) de la reservación.
   schema: {
-    /**
-     * Input schema defines the fields that users can provide when
-     * executing this tool. Each field includes validation rules,
-     * descriptions, and default values.
-     */
+    // Configurar datos de entrada de la reservación.
     input: {
       rid: numberField({
-        required:true,
-        description:"Restaurnt ID",
-        min:0
-      }),
-      city: stringField({
         required: true,
-        description: 'Ciudad',
-        minLength: 1,
-        maxLength: 500,
+        description: "Restaurant ID (RID)",
       }),
-      date_time: dateField({
+      date_time: stringField({
         required: true,
-        description: 'Fecha',
-        minDate: '2025-01-02',
-        maxDate: '2025-12-31'
+        description: 'Horario',
+        minLength: 16,
+        maxLength: 16
       }),
       party_size: numberField({
         required: true,
         description: 'Número de personas',
         min: 1,
-        max: 20,
         default: 1,
       }),
-      country: stringField({
-        required: true,
-        description: 'País',
-        minLength: 1,
-        maxLength: 50,
-      }),
-      maximum: numberField({
-        required: false,
-        min: 1,
-        max: 20,
-        description: 'Número máximo de resultados',
-        default: 1,
-      }),
-      pricing: stringField({
-        required: true,
-        minLength: 2,
-        maxLength: 4,
-        description: 'Rango de precios de restaurantes',
-        default: '$$',
-      }),
-      amneties: stringField({
-        required: false,
-        minLength: 0,
-        maxLength: 100,
-        description: 'Discapacidades',
-      }),
-      seating: stringField({
-        required: true,
-        minLength: 1,
-        maxLength: 20,
-        description: 'Lugar donde las personas se sentarán.',
-        default: 'counter',
-      })
+      user: objectField({
+        firstName: stringField({
+          required: true,
+          description: "Nombre(s) del usuario"
+        }),
+        lastName: stringField({
+          required: true,
+          description: "Apellido(s) del usuario"
+        }),
+        phone: objectField({
+          number: numberField({
+            required: true,
+            description: "Número de teléfono",
+            min: 0
+          }),
+          country_code: stringField({
+            required: true,
+            description: "Código del país del usuario",
+            minLength: 2
+          }),
+          phone_type: stringField({
+            required: true,
+            description: "Tipo de teléfono"
+          }),
+        }, { required: true, description: "Número de teléfono" }),
+        specialRequest: stringField({
+          required: true,
+          description: "Petición del usuario"
+        }),
+      }, { required: true, description: "Datos del usuario" })
     },
 
     /**
@@ -145,62 +123,70 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
      * environment variables or configuration files. These are typically
      * used for API keys, service endpoints, and operational parameters.
      */
+    
+    // Definir la configuración del agente.
     config: {
       api_key: apiKeyField({
         required: false,
-        description: 'Optional API key for external services',
+        description: 'Clave de API no obligatoria para utilizar el agente con otros servicios',
       }),
+      /*
       default_count: {
         type: 'number',
         required: false,
         description: 'Default count when not specified in input',
         default: 1,
-      },
+      },*/
     },
   },
 
   /**
-   * The execute function contains the main business logic of the tool.
-   * It receives validated input data, configuration, and execution context,
-   * then performs the requested operation and returns structured results.
+   * Lógica del negocio y procesamiento de la entrada.
    * 
-   * @param input - Validated input data matching the input schema
-   * @param config - Configuration settings from environment/config files  
-   * @param context - Execution context with metadata and tracking information
-   * @returns Promise resolving to structured execution results
+   * @param input - Datos de entrada.
+   * @param config - Configuración del agente.  
+   * @param context - Contexto en la ejecución que contiene datos de seguimiento y los metadatos del agente.
+   * @returns - Devuelve los resultados de la ejecución
    */
-  
+
   async execute(input, config, context) {
     console.log(`Executing kris-restaurant-agent tool with execution ID: ${context.executionId}`);
 
     try {
-      // Datos del usuario.
-      const queryCity = input.city || "";
-      const datetime = input.date_time || "";
-      const noPeople = input.party_size || 0;
-      const country = input.country || "";
-      const maxResults = input.maximum || 0;
-      const pricing = input.pricing || "";
-      const amneties = input.amneties || "";
-      const seating = input.seating || "";
+      
+      let res: any;                                                     // Resultado final.
+      const RID: number = input.rid || 0;                               // RID
+      const DATE_TIME: string = input.date_time || "";                  // Fecha.
+      const PARTY_SIZE: number = input.party_size || 0;                 // No. personas.
+      const USER: User = input.user || {};                              // Datos del usuario.
+      const AVAIL = await getAvailability(RID, DATE_TIME, PARTY_SIZE);  // Disponibilidad.
+      
+      // Checar si la fecha está disponible.
+      if (!AVAIL.success) {
+        console.log("Error:", AVAIL.error);
+      }
+      else {
+        console.log(`\nDisponible: ${Boolean(AVAIL.available)}`);
 
-      const result = {
-        "name": "Mariscos Juan",
-        "pricing": pricing,
-        "location": `${queryCity}, ${country}`,
-        "seating": seating,
-        "amneties": amneties
-      };
+        if (AVAIL.available) {
+          // Realizar la reservación.
+          const RESERVATION = await makeReservation(RID, DATE_TIME, PARTY_SIZE, USER);
+          res = RESERVATION;
+          if (RESERVATION?.success) {
+            console.log("\nLa reservación se realizó con éxito.\n")
+            console.log(`\n${RESERVATION.data}\n`)
+          }
+        } else {
+          console.log("\nNo hay disponibilidad para ese horario.\n");
+          res = {success: false, data: {message: "Mesa no disponible."}}
+        }
+      }
 
-      // Simulate some processing time (remove this in real implementations)
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Return structured results following AI Spine conventions
-      // The response includes the processed data, metadata, and execution information
+      // Regresar información del JSON, metadatos, etc.
       return {
         status: 'success',
         data: {
-          results: result,
+          results: res,
           metadata: {
             execution_id: context.executionId,
             timestamp: context.timestamp.toISOString(),
@@ -209,24 +195,18 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
         },
       };
     } catch (error) {
+      // Errores de procesamiento.
       console.error('Error processing message:', error);
-      // Always provide meaningful error messages to help users troubleshoot issues
       throw new Error(`Failed to process message: ${error instanceof Error ? error.message : String(error)}`);
     }
   },
 });
 
 
-
-/**
- * Main entry point that starts the tool server with configurable options.
- * The server exposes REST endpoints that comply with the AI Spine universal contract:
- * - GET /health - Health check and tool metadata
- * - POST /execute - Execute the tool with input data
- * - GET /schema - Tool schema and documentation
- * 
- * Configuration is loaded from environment variables, allowing for flexible
- * deployment across different environments.
+/*
+ * Función prinicipal.
+ * GET
+ * POST
  */
 async function main() {
   try {
@@ -234,19 +214,19 @@ async function main() {
       // Server configuration from environment variables with sensible defaults
       port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
       host: process.env.HOST || '0.0.0.0',
-      
+
       // Development features for easier debugging and testing
       development: {
         requestLogging: process.env.NODE_ENV === 'development'
       },
-      
+
       // Security configuration for production deployments
       security: {
         requireAuth: process.env.API_KEY_AUTH === 'true',
         ...(process.env.VALID_API_KEYS && { apiKeys: process.env.VALID_API_KEYS.split(',') }),
       },
     });
-    
+
     console.log(`🚀 KrisRestaurantAgent tool server started successfully`);
     console.log(`📡 Listening on port ${process.env.PORT || 3000}`);
     console.log(`🔗 Health check: http://localhost:${process.env.PORT || 3000}/health`);

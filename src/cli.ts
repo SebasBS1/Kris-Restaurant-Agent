@@ -37,17 +37,16 @@ async function main() {
       console.log("Error:", avail.error);
     }
     else{
-      console.log("Disponible: ", Boolean(avail.available));
+      console.log(`\nDisponible: ${Boolean(avail.available)}\n`);
 
       if (avail.available) {
         const reservation = await makeReservation(rid,datetime,people,user)
         if(reservation?.success){
-          console.log("La reservacion se realizó con éxito")
+          console.log("La reservacion se realizó con éxito.")
           console.log(reservation.data.message)
         }
-
       } else {
-        console.log("No hay disponibilidad para ese horario");
+        console.log("No hay disponibilidad para ese horario.");
       }
     }
 
