@@ -7,8 +7,8 @@ WORKDIR /app
 # Hacer una copia de los archivos del paquete.
 COPY package*.json ./
 
-# Instalar módulos.
-RUN npm ci --only=production
+# Instalar todas las dependencias.
+RUN npm ci
 
 # Hacer una copia del código fuente.
 COPY . .
@@ -26,16 +26,18 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 tooluser
 
+# Copiar package.json.
+COPY package*.json ./
+RUN npm ci --omit=dev
+
 # Hacer una copia de la API armada.
 COPY --from=builder --chown=tooluser:nodejs /app/dist ./dist
-COPY --from=builder --chown=tooluser:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=tooluser:nodejs /app/package.json ./package.json
 
 # Escoger el usuario que no es de raíz.
 USER tooluser
 
 # Puerto (variable de entorno).
-ENV PORT=8000
+ENV PORT=3000
 
 # Exponer el puerto.
 EXPOSE 3000

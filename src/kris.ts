@@ -19,7 +19,13 @@ function sameMinute(a: string, b: string): boolean {
 }
 
 export async function getAvailability(rid: number, datetime: string, people: number) {
-  const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/availability/${rid}?party_size=${people}&date_time=${datetime}`;
+  let url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/availability/?party_size=${people}&date_time=${datetime}&id=${rid}`;
+
+  // Si no hay datos válidos en la fecha y el número de personas, establecer un RID inválido.
+  if ((datetime == "" || datetime == null) && (people < 1 || people == null)){
+    rid = 80000;
+    url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/availability/?id=${rid}`;
+  }
 
   try {
     const response = await axios.get(url, {
@@ -61,7 +67,7 @@ export async function getAvailability(rid: number, datetime: string, people: num
 }
 
 export async function lockBookingSlot(rid: number, datetime: string, people: number) {
-  const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/${rid}/lock`;
+  const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/${rid}/lock?id=${rid}`;
 
   try {
     const response = await axios.post(
@@ -108,7 +114,7 @@ export async function getInfo() {
 }
 export async function makeReservation(rid: number, datetime: string, people: number, user: User) {
   const lock = await lockBookingSlot(rid, datetime, people);
-  const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/${rid}/reservations`;
+  const url = `https://3fec281f-2e92-4e55-9ac9-0d882526eb2b.mock.pstmn.io/reservations?id=${rid}`;
 
   if (!lock.success) {
     console.log('Lock falló:', lock.error);
