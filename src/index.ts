@@ -204,36 +204,26 @@ async function main() {
   }
 }
 
-/**
- * Graceful shutdown handlers ensure the tool server stops cleanly when
- * receiving termination signals. This is important for:
- * - Completing ongoing requests
- * - Cleaning up resources
- * - Proper logging and monitoring
- * - Container orchestration compatibility
- */
+// Terminar la ejecución.
 
-// Handle SIGINT (Ctrl+C) for graceful shutdown
+// SIGINT (Ctrl+C)
 process.on('SIGINT', async () => {
   console.log('\n🔄 Received SIGINT, shutting down gracefully...');
   await krisRestaurantAgentTool.stop();
   process.exit(0);
 });
 
-// Handle SIGTERM (container/process manager termination) for graceful shutdown
+// SIGTERM (terminación con admin. de procesos y contendor)
 process.on('SIGTERM', async () => {
   console.log('🔄 Received SIGTERM, shutting down gracefully...');
   await krisRestaurantAgentTool.stop();
   process.exit(0);
 });
 
-// Start the server if this file is run directly (not when imported as a module)
+// Iniciar servidor directamente.
 if (require.main === module) {
   main();
 }
 
-/**
- * Export the tool instance for use in tests, other modules, or programmatic usage.
- * This allows the tool to be imported and used without starting the HTTP server.
- */
+
 export default krisRestaurantAgentTool;
