@@ -19,22 +19,7 @@ import axios from 'axios';
 import { createTool, stringField, numberField, apiKeyField, objectField } from '@ai-spine/tools';
 import { getAvailability, lockBookingSlot, User, makeReservation } from "./kris"
 
-/**
- * Interfaz de los datos de entrada del agente.
- *
-interface KrisRestaurantAgentInput {
-  rid: number; //restaurant id
-  city: string;      // Ciudad.
-  date_time: string;   // Fecha y hora.
-  party_size: number;     // Cantidad de personas.
-  country: string;    // País.
-  maximum: number;    // Número máximo de resultados.
-  pricing: string;    // $$, $$$, $$$$
-  amneties: string;   // wheelchair access o vacío
-  seating: string;    // bar, counter, outdoor, high top
-}
-**/
-
+// Interfaz de los datos de entrada del agente.
 interface KrisRestaurantAgentInput {
   rid: number;         // Restaurant id
   date_time: string;   // Fecha de reservación.
@@ -42,11 +27,7 @@ interface KrisRestaurantAgentInput {
   user: User;          // Datos del usuario.
 }
 
-/**
- * Configuration interface defining settings that can be provided via
- * environment variables or configuration files. These settings typically
- * include API keys, service endpoints, and operational parameters.
- */
+// Interfaz de configuración.
 interface KrisRestaurantAgentConfig {
   /** Optional API key for external service integrations */
   api_key?: string;
@@ -118,25 +99,12 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
       }, { required: true, description: "Datos del usuario" })
     },
 
-    /**
-     * Configuration schema defines settings that can be provided via
-     * environment variables or configuration files. These are typically
-     * used for API keys, service endpoints, and operational parameters.
-     */
-    
-    // Definir la configuración del agente.
+    // Esquema de configuración.
     config: {
       api_key: apiKeyField({
         required: false,
         description: 'Clave de API no obligatoria para utilizar el agente con otros servicios',
       }),
-      /*
-      default_count: {
-        type: 'number',
-        required: false,
-        description: 'Default count when not specified in input',
-        default: 1,
-      },*/
     },
   },
 
@@ -211,16 +179,16 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
 async function main() {
   try {
     await krisRestaurantAgentTool.start({
-      // Server configuration from environment variables with sensible defaults
+      // Configuración del servidor
       port: process.env.PORT ? parseInt(process.env.PORT) : 3000,
       host: process.env.HOST || '0.0.0.0',
 
-      // Development features for easier debugging and testing
+      // Características para pruebas y debugging.
       development: {
         requestLogging: process.env.NODE_ENV === 'development'
       },
 
-      // Security configuration for production deployments
+      // Configuración de seguridad para deployment.
       security: {
         requireAuth: process.env.API_KEY_AUTH === 'true',
         ...(process.env.VALID_API_KEYS && { apiKeys: process.env.VALID_API_KEYS.split(',') }),
