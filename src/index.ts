@@ -173,8 +173,8 @@ const krisRestaurantAgentTool = createTool<KrisRestaurantAgentInput, KrisRestaur
 
 /*
  * Función prinicipal.
- * GET
- * POST
+ * GET: api/health
+ * POST: /api/execute
  */
 async function main() {
   try {
